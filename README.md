@@ -2,6 +2,9 @@
 
 Projects to Show some of the skills I've learned in python
 
+### Tk timer from treehouse
+The timer.py in the tkinter folder is an example of a simple timer using Tk and ways to use the alert messagebox.  Just another thing to play around with.
+
 ###Class Pojects
 ***
 ### Bible Trivia
