@@ -81,7 +81,7 @@ class GetTheWord:
 		# Update button
 		self.Update_old_button = tkinter.Button(
 							self.f2,
-							text="Update Old",
+							text="Update Existing",
 							command= self.UpdateOld
 							)
 		self.Update_old_button.grid(row=5, column=0, sticky='ew')
@@ -89,16 +89,76 @@ class GetTheWord:
 		# Update Button
 		self.Update_button = tkinter.Button(
 							self.f2,
-							text="Update New",
+							text="Create New",
 							command= self.UpdateNew
 							)
 		self.Update_button.grid(row=5, column=1, sticky='ew')
 
 	def UpdateOld(self, *args):
-		pass
+		#c.execute("UPDATE {tn} SET {cn}=('Hi World') WHERE {idf}=(123456)".format(tn=table_name, cn=column_name, idf=id_column))
+		#-------------------------
+		# Get information from the form
+		C = self.update_Category.get()
+		S = self.update_Site.get()
+		L = self.update_Login.get()
+		P = self.update_Password.get()
+
+		#-------------------------
+		# Check to see if it Exists
+		try:
+			#----------------------------------
+			# We need to check if there are more than one account at a web site.
+			sql_call = conn.execute("SELECT * FROM AccessTable WHERE Site is '{}'".format(S)).fetchall()
+			last_login = list(sql_call[-1])[3]
+			for login_row in sql_call:
+				login_row = list(login_row)
+				if login_row[3] == L:				
+					#---------------
+					# This is the row that needs updating, get the row number to update
+					row_number = login_row[0]
+					conn.execute("UPDATE AccessTable SET Pass = '{}' WHERE Utime='{}'".format(P, row_number))
+					conn.commit()
+					self.ClearUpdateForm()
+					messagebox.showinfo('Account Updated', 'Success! Update Complete')
+					break
+				elif login_row[3] == last_login:
+					#---------------
+					# Can Not Find Row to be updated
+					messagebox.showinfo("Account Login Doesn't Exist for this Web Site", 'Please Use Create New if the information is correct')
+				
+		except:
+			messagebox.showinfo("Account Doesn't Exist", 'Please Use Create New if the information is correct')
+		
 
 	def UpdateNew(self, *args):
-		pass
+		#-------------------------
+		# Get information from the form
+		C = self.update_Category.get()
+		S = self.update_Site.get()
+		L = self.update_Login.get()
+		P = self.update_Password.get()
+		#---------------------
+		# Check if All data is present
+		if (C and S and L and P):
+			try:
+				#Check to see if the Site and Login are already in the Database
+				w = str(conn.execute("SELECT Login FROM AccessTable WHERE Site is '{}'".format(S)).fetchall()).split("'")[1]
+				if(L == w):
+					messagebox.showinfo('Account Already Created', 'Please Use Update Existing if you want to make changes')
+				else:
+					info = "'{}', '{}', '{}', '{}'".format(C,S,L,P)
+					complete = insertRecord(info)
+					if complete:
+						self.ClearUpdateForm()
+			except:
+				info = "'{}', '{}', '{}', '{}'".format(C,S,L,P)
+				complete = insertRecord(info)
+				if complete:
+					self.ClearUpdateForm()
+
+		else:
+			messagebox.showinfo('Missing Information', 'Please Enter all Fields')			
+
 
 	def findSelected(self, *args):
 		I = self.input_box.get()
@@ -139,6 +199,11 @@ class GetTheWord:
 
 		else:
 			pass
+	def ClearUpdateForm(self, *args):
+		self.update_Category.delete(0, 'end')
+		self.update_Site.delete(0, 'end')
+		self.update_Login.delete(0, 'end')
+		self.update_Password.delete(0, 'end')
 
 
 def SetupCategory():
@@ -150,12 +215,21 @@ def SetupCategory():
 			currentCategories.append(a[i])
 		i += 1
 	
+def insertRecord(data):
+	#info = "'Banking', 'BOA', 'JohnDoe', 'notforyou'"
+ 	#insertRecord(info)
+	index = int(str(conn.execute("SELECT MAX(Utime) FROM AccessTable").fetchall()).split(',')[0].replace('[(', '')) + 1
+	columns = "'Utime', 'Category', 'Site', 'Login', 'Pass'"
+	conn.execute("INSERT INTO AccessTable ({}) VALUES ({}, {});".format(columns, index, data))
+	failed = conn.commit()
+	if not failed:
+		messagebox.showinfo('Thank you', 'Successful! You have Updated the database')
+		return True
 
-SetupCategory()
 
 
 if __name__ == "__main__":
+	SetupCategory()
 	root = tkinter.Tk()
-
 	GetTheWord(root)
 	root.mainloop()
