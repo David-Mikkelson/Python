@@ -1,10 +1,11 @@
-import sqlite3
-import re
+import sqlite3, sys
+import re, os, time
 import tkinter
 from tkinter import messagebox
 from tkinter import *
 from tkinter import ttk
 dataBase = 'test.db'
+table_name = "AccessTable"
 conn = sqlite3.connect(dataBase)
 currentCategories = []
 
@@ -13,10 +14,27 @@ class GetTheWord:
 	def __init__(self, master):
 		self.master = master
 		self.master.title("Finding Passwords")
+		#self.master.option_add("*Background", "grey")
 		
+		#--------------------
+		# Adding top level menubar for program
+		self.master.option_add('*tearOff', False)
+		menubar = Menu(self.master)
+		self.master.config(menu = menubar)
+		file = Menu(menubar)
+		edit = Menu(menubar)
+		help_ = Menu(menubar)
+		menubar.add_cascade(menu = file, label = 'File')
+		menubar.add_cascade(menu = edit, label = 'Edit')
+		menubar.add_cascade(menu = help_, label = 'Help')
+		#file.add_command(label = 'New', command = lambda: print('New File'))
+		file.add_command(label = 'New Database', command = lambda: CreateNewDB())
+
 		#-----------------------------------
-		# Creating Tabs
-		self.n = ttk.Notebook(self.master, width=300, height=250)
+		# Creating Tabs 
+		# f1 will be The Password Search tab
+		# f2 will be the Databasse Update tab
+		self.n = ttk.Notebook(self.master, width=325, height=250)
 		
 		self.f1 = ttk.Frame(self.n)   # first page, which would get widgets gridded into it
 		self.f2 = ttk.Frame(self.n)   # second page
@@ -25,38 +43,41 @@ class GetTheWord:
 		self.n.add(self.f2, text='Update Passwords')
 
 		self.n.pack(fill=tkinter.BOTH, expand=False)
+		#------------------
+		# The Layout of the tabs
 		self.configuref1()
 		self.configuref2()
 
 	def configuref1(self):
-		self.getPassword_frame = tkinter.Frame(self.f1)
-		self.getPassword_frame.grid(row=2, column=0, sticky='nsew', pady = 10, padx = 10)
-		#-----------------------------------------------
+		#-----------------------------
+		# The Layout of the Password search Side 
+		
 		# Setup Drop down menu
 		lst1 = ['Category','Site']
 		self.Selected = tkinter.StringVar()
 		self.Selected.set('Category')
-		drop = tkinter.OptionMenu(self.getPassword_frame, self.Selected, *lst1)
+		drop = tkinter.OptionMenu(self.f1, self.Selected, *lst1)
 		drop.grid(row=0, column=0, sticky='w', padx = 10, pady = 10)
 		
-		#-----------------------------------------------
+		#--------------------------
 		# Setup Input Type for user
-		self.input_box =  Entry(self.getPassword_frame, width=20)
+		self.input_box =  Entry(self.f1, width=20)
 		self.input_box.grid(row=0, column=1, sticky='w', padx = 10, pady = 10)
-		#-----------------------------------------------
+		#------------------
 		# Setup Find Button
 		self.find_button = tkinter.Button(
-							self.getPassword_frame,
+							self.f1,
 							text="Find",
-							command= self.findSelected
+							command= self.findSelected,
+							relief="sunken"
 							)
 		self.find_button.grid(row=1, column=0, sticky='ew')
 
 	
 	def configuref2(self):
-		#--------------------------
+		#---------
 		# Banner
-		ttk.Label(self.f2, text = 'Updating Passwords').grid(row=0, column=0, columnspan=2)
+		ttk.Label(self.f2, text = 'Updating Passwords', anchor='center').grid(row=0, column=0, columnspan=2)
 		#--------
 		# Insert Category
 		ttk.Label(self.f2, text = 'Category').grid(row=1, column=0, sticky='wnes')
@@ -163,7 +184,7 @@ class GetTheWord:
 	def findSelected(self, *args):
 		I = self.input_box.get()
 		S = self.Selected.get()
-		print(self.Selected.get(), self.input_box.get())
+		#print(self.Selected.get(), self.input_box.get())
 		self.input_box.delete(0, 'end')
 		if I == "":
 			messagebox.showinfo('Missing Information', 'Please Enter search Parameters!')
@@ -172,13 +193,17 @@ class GetTheWord:
 			#------------------
 			# using SQL to get all the login's and pass words in the Category given
 			if I not in currentCategories:
-				messagebox.showinfo('Not a Category', 'Please Enter one of the following: \n{}'.format(currentCategories))
+				# if there is nothing in currentCategories
+				if not currentCategories:
+					messagebox.showinfo('No Categories', 'There is no Entries in Categories yet.')
+				else:
+					messagebox.showinfo('Not a Category', 'Please Enter one of the following: \n{}'.format(currentCategories))
 			else:
 				message = ""
 				a = conn.execute("SELECT * FROM AccessTable WHERE Category is '{}'".format(I)).fetchall()
 				for response in a:
 					u, cat, site, login, Pass, a1, a2, a3 = response
-					print(cat, site, login)
+					#print(cat, site, login)
 					message += "{} : {} : {} \n".format(site, login, Pass)
 
 				messagebox.showinfo('Category: {}'.format(I), '{}'.format(message))
@@ -192,7 +217,7 @@ class GetTheWord:
 				message = ""
 				for response in a:
 					u, cat, site, login, Pass, a1, a2, a3 = response
-					print(cat, site, login)
+					#print(cat, site, login)
 					message += "{} : {} : {} \n".format(site, login, Pass)
 
 				messagebox.showinfo('Category: {}'.format(I), '{}'.format(message))
@@ -206,7 +231,8 @@ class GetTheWord:
 		self.update_Password.delete(0, 'end')
 
 
-def SetupCategory():
+def Setup():
+	createTable()
 	#a = conn.execute("SELECT Category FROM AccessTable GROUP BY Category ").fetchall()
 	a = str(conn.execute("SELECT Category FROM AccessTable GROUP BY Category ").fetchall()).split("'")
 	i = 1
@@ -218,18 +244,48 @@ def SetupCategory():
 def insertRecord(data):
 	#info = "'Banking', 'BOA', 'JohnDoe', 'notforyou'"
  	#insertRecord(info)
-	index = int(str(conn.execute("SELECT MAX(Utime) FROM AccessTable").fetchall()).split(',')[0].replace('[(', '')) + 1
+	
+	# if this is the first entry, it'll need a number.
+	try:
+		index = int(str(conn.execute("SELECT MAX(Utime) FROM AccessTable").fetchall()).split(',')[0].replace('[(', '')) + 1
+	except:
+		index = 1
+
 	columns = "'Utime', 'Category', 'Site', 'Login', 'Pass'"
 	conn.execute("INSERT INTO AccessTable ({}) VALUES ({}, {});".format(columns, index, data))
 	failed = conn.commit()
 	if not failed:
 		messagebox.showinfo('Thank you', 'Successful! You have Updated the database')
+		# In order to update the Category list
+		Setup()
 		return True
+
+def createTable():
+	# key, Category, site, login, password, answer1, answer2, answer3
+	conn.execute("CREATE TABLE IF NOT EXISTS AccessTable ( Utime INTEGERPRIMARY KEY, Category TEXT, Site TEXT, Login TEXT, Pass TEXT, Answer1 TEXT, Answer2 TEXT, Answer3 TEXT)")
+	conn.commit()
+
+def CreateNewDB():
+	#-------------------- 
+	# 1. Create archive name for old dataBase
+	# 2. reconnect to database, which creates new file
+	# 3. Create new Table for database
+	time_tag = time.ctime()
+	for c in [':', ' ']: time_tag = time_tag.replace(c, "")
+	archive_name = "database-archive" + time_tag
+	#renaming the old database for safety
+	os.rename(dataBase,archive_name)
+	# 2
+	conn = sqlite3.connect(dataBase)
+	# 3
+	Setup()
 
 
 
 if __name__ == "__main__":
-	SetupCategory()
+	Setup()
 	root = tkinter.Tk()
+	style = ttk.Style()
+	style.theme_use('classic')
 	GetTheWord(root)
 	root.mainloop()
