@@ -2,7 +2,7 @@
 from bs4 import BeautifulSoup
 import os, re
 import sqlite3
-
+from bibleinfo import *
 
 try:
     # For Python 3.0 and later
@@ -31,12 +31,8 @@ def getPage(name):
 	page = html.read()
 	return page
 	
-
-def extractVerses(page, book, chapter, version):	
-	
-
-	#----------------------
-	# 1. Using BeautifulSoup tak page and remove foot Notes and Section Heads from page
+def pageCleanUp(page):
+	#page = open("gen3", 'r')
 	soup = BeautifulSoup(page, "html.parser")
 	
 	try:
@@ -44,59 +40,64 @@ def extractVerses(page, book, chapter, version):
 		footnotes_tag = soup.find("span", {"class": "mainfootnotes"}).extract()
 		footnotes_tag = soup.find("span", {"class": "nivfootnote"}).extract()
 	except:
-		print("No footnotes in {} {}".format(book, chapter))
+		pass
 	
 	try:
 		# removing Section Heads from the content
 		junk = soup.find_all("p", {"class": "sectionhead"})
+		junk += soup.find("p", {"class" : "ntext"})
+		junk += soup.find("p", {"class" : "ntext2"})
 		for i in junk:
 
 			junk1 = i.extract()
 	except:
 		print("no Junk")
-	#----------------------------
-	# 2. the div that contains the Bible verses has a class of chap
-	chapter_contents = soup.find("div", {"class": "chap"})
-	#-----------
-	# 3. Adjusting content to be on different lines
-	better_contents = chapter_contents.prettify()
-	file2 = open("testing", "w")
-	print(better_contents, file = file2)
-	file2.close()
-	# 4. Removing final tags from page
-	removed_tags = re.sub("(?<=<).*(?=>)|[<>]", '', str(better_contents))
-	
-	#testing chap 2 genesis
-	file1 = open("testing1", 'w')
-	print(removed_tags, file=file1)
-	file1.close()
-	# 5. Formating and removing white space.
-	lines = removed_tags.split("\n")
+
+	verses_only = soup.find_all("p")
+	return verses_only
+
+def extractVerses(page, book, chapter, version):	
+	#--------------------------
+	# Start with initializing variables
 	verse_number = 0
 	verse_text = ""
-	for line in lines:
 	
-		line = re.sub("^\s+", '', line)
-		
-		try:
-			verse_number = int(line)
-			if verse_number - 1  > 0:
-				i = verse_number - 1
-				print("{} {}".format(i, verse_text))
-				#updateSQL(book, chapter, i, verse_text, version)
-				verse_text = ""
 
-		except ValueError:
-			if bool(re.search(r'\w', line)):
-				line = re.sub("[\n]", '', line)
-				verse_text += " {}".format(line)
+	for p in page:
+		# creating each tag in it's own line
+		p = p.prettify()
+		# removing the final tags 
+		p = re.sub("(?<=<).*(?=>)|[<>]", '', p)
+		# spliting on new lines in order to remove all the empty lines that removing tags just created
+		lines = p.split('\n')
+		for line in lines:
+			# Removing the starting whitespace
+			line = re.sub("^\s+", '', line)
+			
+			try:
+				# see if the line is a number and put it into the verse_number variable
+				verse_number = int(line)
+				if verse_number - 1  > 0:
+					# if we are moving to the next verse, update last verse and clear text
+					i = verse_number - 1
+					print("{} {}".format(i, verse_text))
+					updateSQL(book, chapter, i, verse_text, version)
+					verse_text = ""
+			except:
+				if bool(re.search(r'\w', line)):
+					# if the line is text remove the new line char and add it to the text
+					line = re.sub("[\n]", '', line)
+					verse_text += " {}".format(line)
+
+	#update the last verse on the page
+	print("{} {}".format(verse_number, verse_text))
+	updateSQL(book, chapter, verse_number, verse_text, version)
 	
-	# 7. print final verse
-	print("{} {}".format(verse_number, verse_text))		
-	#updateSQL(book, chapter, verse_number, verse_text, version)
 	
 
 def updateSQL(book, chapter, verse, text, version):
+	#updateSQL(book, chapter, verse_number, verse_text, version)
+
 	# 1. Check to see if table exists 
 	# 2. Check to see if verse is already in the database
 	# 3. if not insert
@@ -109,20 +110,34 @@ def updateSQL(book, chapter, verse, text, version):
 	c.execute("INSERT OR IGNORE INTO bibleVerses ({}) VALUES ({})".format(table_row, table_data))
 	conn.commit()
 
+def askForBook():
+	# returns 3 things the Books Name, Number of chapters, and index of biblehubs name
+	bookRequested = input('Enter the name of the Bible book you would like to put into the database: ')
+	try:
+		# if Chapter_total[bookRequested]:
+		# 	print("great : {} has {} chapters".format(bookRequested, Chapter_total[bookRequested]))
+		# 	return (bookRequested, Chapter_total[bookRequested])
+		Number = Chapters[Books_of_the_Bible.index(bookRequested.lower())]
+		print("Great: {} has {} chapters".format(bookRequested, Number))
+		return (bookRequested, Number, Books_of_the_Bible.index(bookRequested.lower()))
+	except:
+		print("That book is not in my library.  Please try again.")
+		askForBook()
 
+def mainProgram():
+	(book, index_max, name_index) = askForBook()
+	index = 1
+	bookForHub = biblehub_names[name_index]
+	while index <= index_max:
+		
+		version = "NIV"
+		print("{} Chapter {} out of {}".format(book, index, index_max))
+		webpage = getPage("http://biblehub.com/niv/{}/{}.htm".format(bookForHub, index))
+		webpage = pageCleanUp(webpage)
+		extractVerses(webpage, book, index, version)
+		index += 1
 
-
-
-index = 2
-index_max = 2
-while index <= index_max:
-	version = "NIV"
-	book = "genesis"
-	webpage = getPage("http://biblehub.com/niv/{}/{}.htm".format(book, index))
-	extractVerses(webpage, book, index, version)
-	index += 1
-
-
+mainProgram()
 
 
 
