@@ -1,6 +1,8 @@
 # Python
 
 Projects to Show some of the skills I've learned in python
+### Bible verses database
+The program scraper/biblehub.py is a program that will ask you for what book of the Bible you would like to add to a database.  This will put each verse from the requested book into the database.  updates to come will be the whole Bible at once and being able to name the database.
 
 ### Access.py in the tkinter folder
 To many people have a text file with all their logins and Passwords, so why not make it searchable.  I made a program that will take sqlite3 and create a database to store and update your passwords.  Not very secure but it beats having a text file names passwrds.
