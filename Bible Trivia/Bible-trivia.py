@@ -5,13 +5,16 @@ from tkinter import ttk
 from tkinter import messagebox
 
 
+
+
 #-----------------------
 #  change to location of the database
-#
+#-----------------------
 c = sqlite3.connect('bible-trivia.db')
 
 #-----------------------
 # These are the answers the program will search for in the database
+#-----------------------
 trivia_answers = ['eternal', 'burden', 'jerusalem', 'kingdom', 'rulers', 'authority', 'disciples',  
 				'compassion', 'daughter', 'instructed', 'prophet', 'children', 'bethany', 'fig', 'temple', 'pharisees', 'mountain', 
 				'kingdom', 'light', 'heaven', 'father', 'judged', 'servant', 'teacher', 'sheep', 'jesus', 'crowd', 'condemn', 'prince',
@@ -50,6 +53,7 @@ class TriviaFrame:
 
 		#-------------------------------------------
 		# Setup first question
+		#-------------------------------------------
 		(self.real_answer, self.book, self.chapter, self.verse, self.sentence) = getTriviaquestion('Matthew')
 
 		#-------------------------------------------
